@@ -36,8 +36,8 @@ if package == 'daqp' and mode == 'pin':
     assert digest == '71b0df979de85874bbed01c687a94e93926f445b4dddd236dcb3cea82431ab68'
     archive = stage / 'daqp-0.8.5.tar.gz'; archive.write_bytes(data)
     with tarfile.open(archive) as tf:
-        tf.extractall(root / 'sdist', filter='data')
-    project = root / 'sdist' / 'daqp-0.8.5'
+        tf.extractall(stage / 'sdist', filter='data')
+    project = stage / 'sdist' / 'daqp-0.8.5'
     provenance['source_sdist'] = {'url': url, 'sha256': digest}
     provenance['source_sha_role'] = 'upstream tests only: v0.8.5 tag declares Python 0.8.6; wheel built from hash-verified published 0.8.5 sdist'
 else:
