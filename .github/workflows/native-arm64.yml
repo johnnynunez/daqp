@@ -15,7 +15,7 @@ jobs:
           - mode: pin
             sha: 7af328a3143250e33399543ebf2192d9ca6a02c7
           - mode: current
-            sha: ce6204e17e03e1219b98df8c16970ee5a441d70f
+            sha: 43648a31fbbc6b40b63c90f6cd6ad71a0d4d980f
     env:
       CMAKE_GENERATOR: Visual Studio 17 2022
       CMAKE_GENERATOR_PLATFORM: ARM64
@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
-          repository: darnstrom/daqp
+          repository: johnnynunez/daqp
           ref: ${{ matrix.sha }}
           path: source
           submodules: recursive
@@ -51,4 +51,55 @@ jobs:
         with:
           name: native-daqp-${{ matrix.mode }}
           path: ${{ github.workspace }}/evidence/
+          if-no-files-found: error
+
+  proposed-wheel-ci:
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: johnnynunez/daqp
+          ref: 43648a31fbbc6b40b63c90f6cd6ad71a0d4d980f
+          path: cibw-source
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Verify source and prepare the upstream source files
+        shell: pwsh
+        working-directory: cibw-source
+        run: |
+          if ((git rev-parse HEAD) -ne '43648a31fbbc6b40b63c90f6cd6ad71a0d4d980f') { throw 'source SHA mismatch' }
+          New-Item -ItemType Directory -Force interfaces/daqp-python/csrc
+          Copy-Item -Recurse src,include,codegen -Destination interfaces/daqp-python/csrc
+          Copy-Item CMakeLists.txt interfaces/daqp-python/csrc/CMakeLists.txt
+          Copy-Item LICENSE interfaces/daqp-python/LICENSE
+      - name: Exact proposed cibuildwheel native entry
+        uses: pypa/cibuildwheel@v3.4.0
+        env:
+          CIBW_SKIP: "pp* *-musllinux*"
+          CIBW_BUILD: "cp312-win_arm64"
+          CIBW_ARCHS_WINDOWS: "ARM64"
+          CIBW_TEST_REQUIRES: "pytest numpy"
+          CIBW_TEST_COMMAND: "pytest -s {package}/test"
+        with:
+          package-dir: cibw-source/interfaces/daqp-python
+          output-dir: cibw-evidence/wheels
+      - name: Verify installed cibuildwheel wheel independently
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem cibw-evidence/wheels/*.whl).FullName
+          python -m pip install numpy==2.5.4 scipy==1.18.1 $wheel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python harness/native_verify.py daqp $wheel cibw-evidence/native-verification.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: daqp-proposed-cibuildwheel
+          path: ${{ github.workspace }}/cibw-evidence/
           if-no-files-found: error
