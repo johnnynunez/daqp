@@ -15,7 +15,7 @@ jobs:
       matrix:
         include:
           - os: windows-11-arm
-            cibw_skip: "pp* *-musllinux*"
+            cibw_skip: "pp* *-musllinux* cp39-* cp310-* cp314t-*"
             cibw_archs_windows: "ARM64"
 
     steps:
